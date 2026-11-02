@@ -31,7 +31,20 @@ public sealed record Invoice(string? Supplier, string? InvoiceNumber, string? In
     public decimal? OtherCharges { get; init; }
     public List<string> HistoricalReferences { get; init; } = [];
 }
-public sealed record MockResult(string Number, string Status, string Supplier, decimal Total, int LineCount);
+public sealed record MockResult(string Number, string Status, string Supplier, decimal Total, int LineCount, string? CodingPair = null);
+public sealed class DraftGroup
+{
+    public Guid Id { get; set; }
+    public string CodingPair { get; set; } = "";
+    public string? PurchaseCategory { get; set; }
+    public decimal Total { get; set; }
+    public int LineCount { get; set; }
+    public List<int> LineNumbers { get; set; } = [];
+    public string State { get; set; } = "NotCreated";
+    public MockResult? Result { get; set; }
+}
+public sealed record SharePointFieldPreview(string Name, string? Value, bool Required, string Status);
+public sealed record SharePointRowPreview(string CodingPair, string? Category, decimal? Subtotal, int LineCount, List<SharePointFieldPreview> Fields);
 public sealed class Job
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -47,6 +60,7 @@ public sealed class Job
     public string? ReviewEvidence { get; set; }
     public Invoice? Invoice { get; set; }
     public MockResult? Result { get; set; }
+    public List<DraftGroup> DraftGroups { get; set; } = [];
     public List<string> Events { get; set; } = [];
     public void Record(string state, string message)
     { State = state; Events.Add($"{DateTimeOffset.UtcNow:O} | {state} | {message}"); }
@@ -115,7 +129,7 @@ public static class Rules
         (a.Hash == b.Hash || (a.Invoice is {} x && b.Invoice is {} y &&
         ((!string.IsNullOrWhiteSpace(x.InvoiceNumber) && Normalize(x.InvoiceNumber) == Normalize(y.InvoiceNumber)) ||
         (Normalize(x.Supplier).Length > 0 && Normalize(x.Supplier) == Normalize(y.Supplier) && x.Total == y.Total && x.InvoiceDate == y.InvoiceDate))));
-    public static bool CreationBlocked(string state) => state is "SaveIntent" or "SaveUncertain" or "MockDraftVerified";
+    public static bool CreationBlocked(string state) => state is "SaveIntent" or "SaveUncertain" or "MockDraftVerified" or "DraftGroupsInProgress" or "DraftGroupsUncertain" or "MockDraftsVerified";
     public static bool ConfirmedChemical(InvoiceLine l) => (l.Description ?? "").Contains("STAINBLASTER",StringComparison.OrdinalIgnoreCase) && (l.Description ?? "").Contains("DESTAINER",StringComparison.OrdinalIgnoreCase);
     public static bool ConfirmedNitrileGloves(InvoiceLine l) => System.Text.RegularExpressions.Regex.IsMatch(l.Description ?? "",@"\bGLOVES?\b",System.Text.RegularExpressions.RegexOptions.IgnoreCase) && System.Text.RegularExpressions.Regex.IsMatch(l.Description ?? "",@"\b(NITRILE|NTRLE)\b",System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     public static Invoice ApplyConfirmedCoding(Invoice invoice) => invoice with { Lines=invoice.Lines.Select(l=>ConfirmedChemical(l) ? l with {Coding="SC6115|DNGHL",CodingReason="Matt confirmed laundry/stain-removal chemical: Janitorial Supplies + DNGHL; ignore handwritten DHLIN."} : ConfirmedNitrileGloves(l) ? l with {Coding="SC6112|DNGHL",CodingReason="Matt confirmed disposable nitrile food-service gloves: Food Service Supplies + DNGHL."} : l).ToList() };
@@ -123,5 +137,30 @@ public static class Rules
     static bool NicholasLabels(Invoice i) => (i.Supplier ?? "").StartsWith("Nicholas",StringComparison.OrdinalIgnoreCase);
     public static List<string> ReviewWarnings(Invoice i,int? actual) => PageCountMismatch(i,actual) && NicholasLabels(i) ? [$"Review ambiguous Nicholas page label '{i.PrintedPageLabels}': uploaded {actual}, recorded label count {i.DeclaredPageCount}. Label alone does not establish missing pages; confirm completeness separately."] : [];
     public static bool CanSave(Job job) => !job.ReferenceOnly && job.IndependentlyChecked && job.UploadedPageCount.HasValue && job.Invoice is {} i && !CreationBlocked(job.State) && Validate(i,job.UploadedPageCount).Count==0;
+    public static List<(string CodingPair, string? Category, List<(int Number, InvoiceLine Line)> Lines, decimal? Subtotal)> CategoryGroups(Invoice invoice) =>
+        invoice.Lines.Select((line,index)=>(Number:index+1,Line:line))
+            .GroupBy(x=>x.Line.Coding ?? "")
+            .Select(g=>(CodingPair:g.Key,Category:Coding.GetValueOrDefault(g.Key),Lines:g.ToList(),Subtotal:g.All(x=>x.Line.ExtendedAmount.HasValue) ? g.Sum(x=>x.Line.ExtendedAmount!.Value) : (decimal?)null))
+            .OrderBy(g=>g.CodingPair,StringComparer.Ordinal).ToList();
+    public static Guid StableDraftId(Guid jobId,string codingPair)
+    {
+        var hash=System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(jobId.ToString("N")+"|"+codingPair));
+        return new Guid(hash.AsSpan(0,16));
+    }
+    public static List<SharePointRowPreview> SharePointPreview(Invoice invoice)
+    {
+        return CategoryGroups(invoice).Select(g=>new SharePointRowPreview(g.CodingPair,g.Category,g.Subtotal,g.Lines.Count,
+        [
+            new("Purchase Description",null,true,"Unresolved: confirm description format."),
+            new("Transaction Date",invoice.InvoiceDate,true,"Proposed from invoice date; confirm date rule."),
+            new("Total Cost",g.Subtotal?.ToString("0.00",CultureInfo.InvariantCulture),true,"Confirmed category subtotal."),
+            new("Vendor",invoice.Supplier,true,"Proposed from invoice supplier; SharePoint choice lookup required."),
+            new("Receipt/Order #",invoice.InvoiceNumber,false,"Proposed from invoice number."),
+            new("Purchase Category",g.Category,true,g.Category is null ? "Unresolved coding pair." : "Candidate from coding map; verify against live SharePoint choices."),
+            new("Class ID",null,false,"Unmapped optional field."),
+            new("DH_Category",null,false,"Unmapped optional field."),
+            new("Finance Category",null,false,"Unmapped optional field.")
+        ])).ToList();
+    }
     public static string RequestDescription(InvoiceLine l) => $"Ordered {l.OrderedQuantity}; shipped {l.ShippedQuantity} {l.Uom}; {l.Description}; pack {l.PackSize}; weight {l.Weight} {l.WeightUom}; price {l.UnitPrice:0.####}/{l.PricingBasis}; extended {l.ExtendedAmount:0.00} | Source: {l.OriginalText}";
 }

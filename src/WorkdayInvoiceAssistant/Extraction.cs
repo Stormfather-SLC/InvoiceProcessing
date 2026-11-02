@@ -48,17 +48,25 @@ public sealed class OpenAiExtractor(IConfiguration config, HttpClient http) : II
         return Obj(props);
     }
 }
-public interface IWorkdayGateway { MockResult SaveForLater(Job job); MockResult? Read(Guid jobId); }
+public interface IWorkdayGateway { MockResult SaveForLater(Job job, DraftGroup draft); MockResult? Read(Guid jobId, Guid draftId); MockResult SaveForLater(Job job); MockResult? Read(Guid jobId); }
 public sealed class MockWorkdayGateway(Store store) : IWorkdayGateway
 {
     string PathFor(Guid id) => Path.Combine(store.Root,id+".mock");
-    public MockResult SaveForLater(Job job)
+    public MockResult SaveForLater(Job job, DraftGroup draft)
     {
         if (job.ReferenceOnly) throw new InvalidOperationException("Development samples cannot create even a mock draft.");
-        var i = job.Invoice!;
-        var result = new MockResult("MOCK-"+job.Id.ToString("N")[..12],"Draft (MOCK)",i.Supplier!,i.Total!.Value,i.Lines.Count);
-        using var stream = new FileStream(PathFor(job.Id), FileMode.CreateNew, FileAccess.Write, FileShare.None);
+        var i = job.Invoice ?? throw new InvalidOperationException("Invoice data is missing.");
+        var result = new MockResult("MOCK-"+draft.Id.ToString("N")[..12],"Draft (MOCK)",i.Supplier!,draft.Total,draft.LineCount,draft.CodingPair);
+        using var stream = new FileStream(PathFor(draft.Id), FileMode.CreateNew, FileAccess.Write, FileShare.None);
         JsonSerializer.Serialize(stream,result,Store.Json); stream.Flush(true); return result;
     }
-    public MockResult? Read(Guid jobId) => File.Exists(PathFor(jobId)) ? JsonSerializer.Deserialize<MockResult>(File.ReadAllText(PathFor(jobId)),Store.Json) : null;
+    public MockResult? Read(Guid jobId, Guid draftId) => File.Exists(PathFor(draftId)) ? JsonSerializer.Deserialize<MockResult>(File.ReadAllText(PathFor(draftId)),Store.Json) : null;
+
+    // Backward-compatible helper used by older console checks; application workflow uses category drafts.
+    public MockResult SaveForLater(Job job)
+    {
+        var i=job.Invoice ?? throw new InvalidOperationException("Invoice data is missing.");
+        return SaveForLater(job,new DraftGroup { Id=job.Id,CodingPair="ALL",Total=i.Total ?? 0,LineCount=i.Lines.Count });
+    }
+    public MockResult? Read(Guid jobId) => Read(jobId,jobId);
 }

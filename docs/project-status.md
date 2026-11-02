@@ -35,3 +35,11 @@ API key configuration was confirmed without displaying the key. One paid extract
 ## Review-flow simplification — 2026-11-02
 
 The review page keeps optional OpenAI extraction collapsed and states that BYU approval is required before sending real invoices. Mock draft creation no longer requires a pre-draft user source comparison; it remains gated by automated validation, page/completeness rules, local duplicates and reference-only status. Records remain UNVERIFIED until an independent source comparison is recorded. The intended future final review is in Workday before submission; this milestone still has no live Workday connection or submission capability. Build succeeded after the UI and handler change using a temporary output folder because the user had the app binary running; NuGet vulnerability metadata could not be reached.
+
+## Batch and category workflow implementation — 2026-11-02
+
+- Upload form accepts up to 20 invoice files in a batch (10 MB each; 50 MB aggregate), processes each independently, and reports accepted, duplicate, and rejected files.
+- Mock preparation groups invoice lines by Coding suggestion pair, preserves each source line, and persists/read-backs one mock draft per pair. Per-group intent and uncertain outcomes are reconciled without automatic retry.
+- Each invoice now displays one SharePoint row preview per coding pair, with category subtotal in Total Cost. The preview shows required and optional list fields and explicitly marks unknown description format, proposed date/vendor/receipt mappings, live choice verification, and unmapped optional fields.
+- SharePoint remains preview-only: no SharePoint connector or live write. Its choice lists are not embedded as closed constants; future writes must query the live list choices and handle additions.
+- No user line-by-line review is required in the assistant. Drafts remain UNVERIFIED; final human review is intended in Workday before submission. Workday is still mock-only, with no submission capability.

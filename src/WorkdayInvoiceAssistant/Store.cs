@@ -37,6 +37,9 @@ public sealed class Store : IDisposable
         {
             if (job.State == "Extracting") { job.Record("ExtractionInterrupted", "Interrupted extraction; explicit retry is available."); Save(job); }
             if (job.State == "SaveIntent") { job.Record("SaveUncertain", "Reconcile saved result before any creation attempt."); Save(job); }
+            var changed=false;
+            foreach(var draft in job.DraftGroups.Where(x=>x.State=="SaveIntent")) { draft.State="SaveUncertain"; changed=true; }
+            if(changed) { job.Record("DraftGroupsUncertain","Interrupted category draft write marked uncertain; reconcile before any retry."); Save(job); }
         }
     }
     public void Dispose() => ownership.Dispose();

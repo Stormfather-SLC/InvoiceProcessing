@@ -3,7 +3,7 @@ var builder = WebApplication.CreateBuilder(args);
 // This loopback app normally runs as Production; explicitly load local user-secrets too.
 builder.Configuration.AddUserSecrets<OpenAiExtractor>(optional:true);
 builder.WebHost.UseUrls("http://127.0.0.1:5187");
-builder.WebHost.ConfigureKestrel(o=>o.Limits.MaxRequestBodySize=12*1024*1024);
+builder.WebHost.ConfigureKestrel(o=>o.Limits.MaxRequestBodySize=55*1024*1024);
 builder.Services.AddRazorPages();
 builder.Services.AddSingleton(new Store(builder.Configuration["DataRoot"] ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"WorkdayInvoiceAssistant"), Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath,"../.."))));
 builder.Services.AddSingleton<IWorkdayGateway,MockWorkdayGateway>();
