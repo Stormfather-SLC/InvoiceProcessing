@@ -43,3 +43,9 @@ The review page keeps optional OpenAI extraction collapsed and states that BYU a
 - Each invoice now displays one SharePoint row preview per coding pair, with category subtotal in Total Cost. The preview shows required and optional list fields and explicitly marks unknown description format, proposed date/vendor/receipt mappings, live choice verification, and unmapped optional fields.
 - SharePoint remains preview-only: no SharePoint connector or live write. Its choice lists are not embedded as closed constants; future writes must query the live list choices and handle additions.
 - No user line-by-line review is required in the assistant. Drafts remain UNVERIFIED; final human review is intended in Workday before submission. Workday is still mock-only, with no submission capability.
+
+## Simplified intake screen — 2026-11-02
+
+- Reworked the home page around the requested path: select files, click Start, see a compact status, and use a Workday task link after mock preparation.
+- Moved line data, SharePoint preview, duplicate/validation details, recovery/import tools, history, and synthetic demo controls into collapsed optional details.
+- Added upload-in-progress feedback and clear status steps. The current app only stores/checks uploaded files; external extraction remains paused pending institutional approval, and Workday remains mock-only. The Workday link opens the general requisition task and does not represent an app-created requisition.

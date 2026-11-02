@@ -21,6 +21,8 @@ dotnet user-secrets set "OpenAI:Model" "YOUR_MODEL_ID" --project src/WorkdayInvo
 
 Select up to 20 PDF, PNG or JPEG invoices in one batch (10 MB each, 50 MB total). Without API approval, use local transcription/import; no invoice is sent externally. The expandable correction editor accepts structured JSON; null means unknown. Changes are recorded and revalidated. Each invoice is grouped by Coding suggestion pair: each group becomes a separate mock draft and retains one line per original invoice line. The SharePoint preview shows one row per invoice/category pair and the confirmed category subtotal, while flagging fields or live choice lookups that remain unresolved. SharePoint writes are not implemented. Mock draft creation requires automated validation and a clean local duplicate check, but does not record a human source comparison; the record remains UNVERIFIED. In the intended future workflow, users perform their final source review in Workday before submitting. This milestone has no live Workday connection or submission capability.
 
+The primary page follows a short path: select one or more files, click **Start**, see a simple status, then use the completion link to open Workday's requisition task. Detailed invoice data, recovery tools, processing history, and SharePoint previews are collapsed under optional details. The current build only receives files locally; automatic external extraction is paused until institutional approval, and the Workday completion shown is explicitly labeled mock. The link opens the general requisition task, not a requisition created by this app.
+
 ```powershell
 dotnet run --project tests/Checks
 ```
