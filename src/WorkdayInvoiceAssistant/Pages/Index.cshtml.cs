@@ -118,9 +118,12 @@ public class IndexModel(Store store, IInvoiceExtractor extractor, IWorkdayGatewa
     public async Task<IActionResult> OnPostDemoAsync()
     {
         await Gate.WaitAsync(); try {
-            var existing=store.All().Find(j=>j.Hash=="SYNTHETIC-DEMO"); if(existing is not null) return RedirectToPage(new{id=existing.Id});
-            var j=new Job { Hash="SYNTHETIC-DEMO",FileName="Synthetic example (no original)",Provider="Synthetic fixture",UploadedPageCount=1,DocumentKind="Synthetic fixture",Invoice=new("Example Supplier","DEMO-001","2026-10-29","USD","Unpaid",78.20m,[new(4,"EA","Example beverage",19.55m,78.20m,"4 EA Example beverage $19.55 $78.20","SC6110|DHBEV") {OrderedQuantity=4,ShippedQuantity=4,PricingBasis="Each",PricingQuantity=4,FulfillmentStatus="Shipped",SourcePage=1}],[]) {Completeness="Complete",DeclaredPageCount=1,PrintedPageLabels="Synthetic page 1",TotalKind="Final",Subtotal=78.20m,Tax=0,OtherCharges=0} };
-            j.Record("NeedsReview","Synthetic fixture; not extracted from an uploaded invoice."); store.Save(j); return RedirectToPage(new{id=j.Id});
+            var existing=store.All().Find(j=>j.Hash=="SYNTHETIC-DEMO-CATEGORIES"); if(existing is not null) return RedirectToPage(new{id=existing.Id});
+            var j=new Job { Hash="SYNTHETIC-DEMO-CATEGORIES",FileName="Synthetic two-category invoice (no original)",Provider="Synthetic fixture",UploadedPageCount=1,DocumentKind="Synthetic fixture",Invoice=new("Example Supplier","DEMO-002","2026-11-02","USD","Unpaid",91.10m,[
+                new(4,"EA","Example beverage",19.55m,78.20m,"4 EA Example beverage $19.55 $78.20","SC6110|DHBEV") {OrderedQuantity=4,ShippedQuantity=4,PricingBasis="Each",PricingQuantity=4,FulfillmentStatus="Shipped",SourcePage=1},
+                new(3,"EA","Example food item",4.30m,12.90m,"3 EA Example food item $4.30 $12.90","SC6110|DNGHL") {OrderedQuantity=3,ShippedQuantity=3,PricingBasis="Each",PricingQuantity=3,FulfillmentStatus="Shipped",SourcePage=1}
+            ],[]) {Completeness="Complete",DeclaredPageCount=1,PrintedPageLabels="Synthetic page 1",TotalKind="Final",Subtotal=91.10m,Tax=0,OtherCharges=0} };
+            j.Record("NeedsReview","Synthetic two-category fixture; not extracted from an uploaded invoice."); store.Save(j); return RedirectToPage(new{id=j.Id});
         } finally { Gate.Release(); }
     }
 }
